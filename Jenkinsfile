@@ -1,10 +1,10 @@
-// Jenkinsfile - Scripted Pipeline (Windows Only)
+// Jenkinsfile (Scripted Pipeline for Windows)
 timestamps {
   node {
     echo "Running on node: ${env.NODE_NAME ?: 'master'}"
     echo "Workspace: ${env.WORKSPACE}"
 
-    // Stage 1: Checkout
+    // === Checkout Stage ===
     stage('Checkout') {
       try {
         echo "[Checkout] Cloning repository..."
@@ -17,7 +17,7 @@ timestamps {
       }
     }
 
-    // Stage 2: Build
+    // === Build Stage ===
     stage('Build') {
       try {
         echo "[Build] Installing dependencies..."
@@ -25,12 +25,7 @@ timestamps {
           echo Checking Node.js and npm versions...
           node --version
           npm --version
-
-          echo Installing dependencies...
-          npm ci || npm install
-
-          REM If your app has a build script, uncomment the next line:
-          REM npm run build
+          npm install
         '''
         echo "[Build] Build stage completed successfully."
       } catch (err) {
@@ -40,43 +35,37 @@ timestamps {
       }
     }
 
-    // Stage 3: Test
+    // === Test Stage ===
     stage('Test') {
       try {
         echo "[Test] Running Jest unit tests..."
         bat '''
           if not exist test-results mkdir test-results
-          npx --yes jest --ci --reporters=default --reporters=jest-junit --outputFile=test-results/junit.xml || echo jest_failed
+          npx jest --ci --reporters=default --reporters=jest-junit --outputFile=test-results/junit.xml || echo jest_failed
         '''
-        echo "[Test] Test execution completed (check console for results)."
       } catch (err) {
         echo "[Test] ERROR: ${err}"
         currentBuild.result = 'UNSTABLE'
         echo "[Test] Marked build as UNSTABLE due to test errors."
       } finally {
-        // Attempt to publish JUnit test reports (safe if none exist)
-        try {
-          junit allowEmptyResults: true, testResults: 'test-results/*.xml'
-        } catch (ignored) {
-          echo "[Test] No JUnit results found or plugin issue."
-        }
+        junit allowEmptyResults: true, testResults: 'test-results/*.xml'
       }
     }
 
-    // Stage 4: Deploy
+    // === Deploy Stage ===
     stage('Deploy') {
       try {
         echo "[Deploy] Creating deployment artifacts..."
         bat '''
           if not exist deploy-artifact mkdir deploy-artifact
-          xcopy /E /I /Y package*.json src README.md deploy-artifact >nul 2>&1
-          dir deploy-artifact
+          xcopy /E /I /Y "package*.json" "deploy-artifact\\" >nul
+          xcopy /E /I /Y "src\\" "deploy-artifact\\src\\" >nul
+          copy README.md deploy-artifact\\ >nul
         '''
 
         echo "[Deploy] Archiving artifacts..."
-        archiveArtifacts artifacts: 'deploy-artifact/**', excludes: 'node_modules/**, .git/**', fingerprint: true
-
-        echo "[Deploy] Deployment stage completed successfully."
+        archiveArtifacts artifacts: 'deploy-artifact/**', fingerprint: true
+        echo "[Deploy] Deploy stage completed successfully."
       } catch (err) {
         echo "[Deploy] ERROR: ${err}"
         currentBuild.result = 'FAILURE'
@@ -84,7 +73,6 @@ timestamps {
       }
     }
 
-    // Final
-    echo "✅ Pipeline finished with result: ${currentBuild.result ?: 'SUCCESS'}"
+    echo "Pipeline finished with result: ${currentBuild.result ?: 'SUCCESS'}"
   }
 }

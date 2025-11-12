@@ -1,10 +1,9 @@
-// Jenkinsfile (Scripted Pipeline for Windows)
 timestamps {
   node {
     echo "Running on node: ${env.NODE_NAME ?: 'master'}"
     echo "Workspace: ${env.WORKSPACE}"
 
-    // === Checkout Stage ===
+    // === Checkout ===
     stage('Checkout') {
       try {
         echo "[Checkout] Cloning repository..."
@@ -17,7 +16,7 @@ timestamps {
       }
     }
 
-    // === Build Stage ===
+    // === Build ===
     stage('Build') {
       try {
         echo "[Build] Installing dependencies..."
@@ -35,12 +34,13 @@ timestamps {
       }
     }
 
-    // === Test Stage ===
+    // === Test ===
     stage('Test') {
       try {
         echo "[Test] Running Jest unit tests..."
         bat '''
           if not exist test-results mkdir test-results
+          npm install --save-dev jest-junit
           npx jest --ci --reporters=default --reporters=jest-junit --outputFile=test-results/junit.xml || echo jest_failed
         '''
       } catch (err) {
@@ -52,7 +52,7 @@ timestamps {
       }
     }
 
-    // === Deploy Stage ===
+    // === Deploy ===
     stage('Deploy') {
       try {
         echo "[Deploy] Creating deployment artifacts..."
@@ -62,7 +62,6 @@ timestamps {
           xcopy /E /I /Y "src\\" "deploy-artifact\\src\\" >nul
           copy README.md deploy-artifact\\ >nul
         '''
-
         echo "[Deploy] Archiving artifacts..."
         archiveArtifacts artifacts: 'deploy-artifact/**', fingerprint: true
         echo "[Deploy] Deploy stage completed successfully."
